@@ -1,5 +1,8 @@
 mod settings;
+mod initialize;
 
-fn main() {
-    let settings = settings::Settings::load().expect("");
+fn main() -> std::io::Result<()> {
+    let settings = settings::Settings::load();
+    initialize::initialize(&settings.repositories_path)?;
+    Ok(())
 }

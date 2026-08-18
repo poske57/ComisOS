@@ -1,44 +1,53 @@
 use std::env;
 use std::fs;
 use std::path::PathBuf;
-
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase")]
 pub struct Settings {
-    #[serde(default)]
     pub repositories_path: PathBuf,
-    #[serde(default)]
-    pub rebuild_command: Option<String>,
-    #[serde(default)]
-    pub agent: Option<String>,
+    pub rebuild_command: String,
+    pub agent: String,
+}
+
+// デフォルト値はここにまとめる。パラメータを追加するときは
+// Settings のフィールドと Default の両方に追記する。
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            repositories_path: PathBuf::from("$HOME/nix"),
+            rebuild_command: "sudo nixos-rebuild switch --flake ~/nix#nixos --impure"
+                .into(),
+            agent: "opencode".into(),
+        }
+    }
 }
 
 impl Settings {
-    pub fn load() -> Result<Self, SettingsError> {
-        let path = config_dir()?.join("comis").join("settings.json");
-        let raw = fs::read_to_string(&path)
-            .map_err(|e| SettingsError::Read { path, source: e })?;
-        let mut settings: Self =
-            serde_json::from_str(&raw).map_err(SettingsError::Parse)?;
-        settings.expand();
-        Ok(settings)
+    pub fn load() -> Self {
+        let path = match config_dir() {
+            Some(dir) => dir.join("comis").join("settings.json"),
+            None => return Self::default().expand(),
+        };
+        let raw = match fs::read_to_string(&path) {
+            Ok(raw) => raw,
+            Err(_) => return Self::default().expand(),
+        };
+        serde_json::from_str::<Self>(&raw).unwrap_or_default().expand()
     }
 
-    fn expand(&mut self) {
+    fn expand(mut self) -> Self {
         self.repositories_path = expand_env(&self.repositories_path);
+        self
     }
 }
 
-fn config_dir() -> Result<PathBuf, SettingsError> {
-    match env::var_os("XDG_CONFIG_HOME").filter(|dir| !dir.is_empty()) {
-        Some(dir) => Ok(PathBuf::from(dir)),
-        None => {
-            let home = env::var_os("HOME").ok_or(SettingsError::NoConfigDir)?;
-            Ok(PathBuf::from(home).join(".config"))
-        }
+fn config_dir() -> Option<PathBuf> {
+    if let Some(dir) = env::var_os("XDG_CONFIG_HOME").filter(|dir| !dir.is_empty()) {
+        return Some(PathBuf::from(dir));
     }
+    env::var_os("HOME").map(|home| PathBuf::from(home).join(".config"))
 }
 
 fn expand_env(path: &std::path::Path) -> PathBuf {
@@ -50,29 +59,3 @@ fn expand_env(path: &std::path::Path) -> PathBuf {
         None => path.to_path_buf(),
     }
 }
-
-#[derive(Debug)]
-pub enum SettingsError {
-    NoConfigDir,
-    Read {
-        path: PathBuf,
-        source: std::io::Error,
-    },
-    Parse(serde_json::Error),
-}
-
-impl std::fmt::Display for SettingsError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SettingsError::NoConfigDir => {
-                write!(f, "XDG_CONFIG_HOME and HOME are both unset")
-            }
-            SettingsError::Read { path, source } => {
-                write!(f, "failed to read {}: {source}", path.display())
-            }
-            SettingsError::Parse(e) => write!(f, "failed to parse settings.json: {e}"),
-        }
-    }
-}
-
-impl std::error::Error for SettingsError {}
