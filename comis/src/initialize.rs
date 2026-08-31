@@ -13,9 +13,11 @@ pub fn initialize(repositories_path: &Path) -> std::io::Result<()> {
     let flake_nix: &str = include_str!("../assets/flake.nix");
     let configuration_nix: &str = include_str!("../assets/configuration.nix");
     let home_nix: &str = include_str!("../assets/home.nix");
+    let agents: &str = include_str!("../assets/AGENTS.md");
     std::fs::write(repositories_path.join("flake.nix"), flake_nix.replace("%username%", &username))?;
     std::fs::write(repositories_path.join("configuration.nix"), configuration_nix.replace("%username%", &username))?;
     std::fs::write(repositories_path.join("home.nix"), home_nix.replace("%username%", &username))?;
+    std::fs::write(repositories_path.join("AGENTS.md"), agents)?;
 
     git_init(repositories_path)?;
 

@@ -10,7 +10,7 @@ fn main() -> std::io::Result<()> {
     initialize::initialize(&settings.repositories_path)?;
 
     env::set_current_dir(&settings.repositories_path)?;
-    let choices = &["Chatを起動する", "設定", "終了"];
+    let choices = &["Chatを起動する", "設定", "rebuild", "終了"];
     let choice: usize = dialoguer::Select::new()
     .items(choices)
     .default(0)
@@ -19,6 +19,7 @@ fn main() -> std::io::Result<()> {
     match choice {
         0 => launch_chat(&settings.agent),
         1 => config_menu(&settings),
+        2 => rebuild(&settings.rebuild_command),
         _ => println!("終了します"),
     }
 
@@ -42,4 +43,14 @@ fn config_menu(settings: &settings::Settings) {
     println!("Path    : {}", settings.repositories_path.display());
     println!("AI agent: {}", settings.agent);
     println!("rebuild-command: {}", settings.rebuild_command);
+}
+
+fn rebuild(command: &String) {
+    let status = Command::new("sh")
+        .arg("-c")
+        .arg(command)
+        .status();
+    if status.is_err() {
+        println!("failed");
+    }
 }
