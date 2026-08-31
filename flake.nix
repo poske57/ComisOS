@@ -15,8 +15,19 @@
         toolchain = pkgs.rust-bin.stable.latest.default.override {
           extensions = [ "rust-src" "clippy" "rustfmt" "rust-analyzer" ];
         };
+        comis = pkgs.rustPlatform.buildRustPackage {
+          pname = "comis";
+          version = "0.1.0";
+          src = ./comis;
+          cargoLock.lockFile = ./comis/Cargo.lock;
+        };
       in
       {
+        packages.default = comis;
+        apps.default = {
+          type = "app";
+          program = "${comis}/bin/comis";
+        };
         devShells.default = pkgs.mkShell {
           packages = [ toolchain ];
         };
